@@ -1,16 +1,16 @@
 {
   "manifestVersion": 1,
-  "id": "plugin_template",
-  "name": "Plugin Template",
-  "author": "remnote",
-  "repoUrl": "",
+  "id": "zoteroIntegration",
+  "name": "Zotero Integration",
+  "author": "stardust",
+  "repoUrl": "https://github.com/Stardusten/rn-zotero-integration",
   "version": {
     "major": 0,
     "minor": 0,
     "patch": 1
   },
   "description": "",
-  "requestNative": false,
+  "requestNative": true,
   "requiredScopes": [
     {
       "type": "All",
