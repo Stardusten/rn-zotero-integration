@@ -64,7 +64,7 @@ async function onActivate(plugin: ReactRNPlugin) {
   const itemsRootDocument = await makeRem(plugin, ['Items'], zoteroRootDocument._id, true);
 
   // make creators document
-  const creatorsRootDocument = await makeRem(plugin, ['Creators'], zoteroRootDocument._id, true);
+  const creatorsRootDocument = await makeRem(plugin, ['Creators'], zoteroRootDocument._id, false);
 
   // make tags document
   const tagsRootDocument = await makeRem(plugin, ['Tags'], zoteroRootDocument._id, false);
@@ -156,7 +156,8 @@ async function onActivate(plugin: ReactRNPlugin) {
 
       const responseItems = await zoteroApi.items().top().get({ limit: Number.MAX_SAFE_INTEGER });
       const items = responseItems.getData();
-      console.log(items);
+      // console.log(itemsMap);
+      // console.log(items);
       for (const item of items) {
         // this item is not exist
         if (!itemsMap.has(item.key)) {
@@ -184,7 +185,13 @@ async function onActivate(plugin: ReactRNPlugin) {
               // classify creators
               const map = new Map();
               for (const creator of value) {
-                const name = `${creator.firstName} ${creator.lastName}`;
+                // two formats:
+                //   1. firstName, lastName
+                //   2. name
+                let name;
+                if (creator.firstName)
+                  name = `${creator.firstName} ${creator.lastName}`;
+                else name = creator.name;
                 if (map.has(creator.creatorType))
                   map.get(creator.creatorType).push(name);
                 else map.set(creator.creatorType, [name]);
@@ -233,9 +240,76 @@ async function onActivate(plugin: ReactRNPlugin) {
           if (oldItem.version != item.version) {
             const rem = (await plugin.rem.findOne(remId))!;
             // update title (rem text)
-            await rem.setText(item.title);
+            await rem.setText([item.title]);
             // update attributes
+            for (const key in item) {
+              const value = item[key];
+              // skip some useless key
+              if (key == 'title' || key == 'key' || key == 'version' || key == 'linkMode'
+                || key == 'dateAdded' || key == 'dateModified' || key == 'accessDate')
+                continue;
+              // skip empty string
+              if (value == '')
+                continue;
+              // skip empty array
+              const isArray = Array.isArray(value);
+              if (isArray && value.length == 0)
+                continue;
+              // skip unknown object
+              if (!isArray && typeof value == 'object')
+                continue;
 
+              if (key == 'creators') {
+                // classify creators
+                const map = new Map();
+                for (const creator of value) {
+                  // two formats:
+                  //   1. firstName, lastName
+                  //   2. name
+                  let name;
+                  if (creator.firstName)
+                    name = `${creator.firstName} ${creator.lastName}`;
+                  else name = creator.name;
+                  if (map.has(creator.creatorType))
+                    map.get(creator.creatorType).push(name);
+                  else map.set(creator.creatorType, [name]);
+                }
+                for (const [creatorType, creators] of map) {
+                  const backText = [];
+                  for (const creator of creators) {
+                    const creatorRem = await makeRem(plugin, [creator], creatorsRootDocument._id, false);
+                    backText.push({ i: 'q', _id: creatorRem._id } as RichTextElementRemInterface);
+                    backText.push(', ');
+                  }
+                  await makeCard(plugin, [capitalize(creatorType)], backText.slice(0, -1), rem._id, SetRemType.DESCRIPTOR, 'none');
+                }
+                continue;
+              }
+
+              if (key == 'tags') {
+                const backText = [];
+                for (const tag of value.map((obj: any) => obj.tag)) {
+                  const tagRem = await makeRem(plugin, [tag], tagsRootDocument._id, false);
+                  backText.push({ i: 'q', _id: tagRem._id } as RichTextElementRemInterface);
+                  backText.push(', ');
+                }
+                await makeCard(plugin, ['Tags'], backText.slice(0, -1), rem._id, SetRemType.DESCRIPTOR, 'none');
+                continue;
+              }
+
+              if (key == 'collections') {
+                const backText = [];
+                for (const collectionKey of value) {
+                  const record = collectionMap.get(collectionKey);
+                  backText.push({ i: 'q', _id: record.remId } as RichTextElementRemInterface);
+                  backText.push(', ');
+                }
+                await makeCard(plugin, ['Collections'], backText.slice(0, -1), rem._id, SetRemType.DESCRIPTOR, 'none');
+                continue;
+              }
+
+              await makeCard(plugin, [capitalize(key)], [value], rem._id, SetRemType.DESCRIPTOR, 'none');
+            }
             // update itemsMap
             itemsMap.set(item.key, { item, remId });
           }

@@ -6,8 +6,8 @@ export const makeRem = async (plugin: RNPlugin, text: RichTextInterface, parent:
     rem = (await plugin.rem.createRem())!;
     await rem.setText(text);
     await rem.setParent(parent);
-    await rem.setIsDocument(isDocument ? isDocument : false);
   }
+  await rem.setIsDocument(isDocument ? isDocument : false);
   return rem;
 }
 
